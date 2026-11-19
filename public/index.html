@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Viral Content Scraper</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brandmark">Viral Content <span>Scraper</span></div>
+    <div id="status" class="status"></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <button id="newPullBtn" class="btn primary block">+ New pull</button>
+      <h3>Past pulls</h3>
+      <ul id="jobList" class="job-list"></ul>
+    </aside>
+
+    <main id="main">
+      <!-- New pull form -->
+      <section id="formView" class="view">
+        <h1>New viral content pull</h1>
+        <p class="muted">Finds the top-performing videos for a campaign's topics, plus the brand's own best past videos, then breaks them down with Claude.</p>
+        <form id="pullForm" class="card form">
+          <div class="grid2">
+            <label>Brand / campaign name
+              <input name="brand" required placeholder="e.g. Glow Recipe — Summer launch">
+            </label>
+            <label>Time window
+              <div class="seg" id="windowSeg">
+                <button type="button" data-v="30">30 days</button>
+                <button type="button" data-v="60">60 days</button>
+                <button type="button" data-v="90" class="on">90 days</button>
+              </div>
+            </label>
+          </div>
+          <label>Campaign notes <span class="hint">(goal, audience, product, tone; helps Claude adapt hooks)</span>
+            <textarea name="campaignNotes" rows="2" placeholder="Gen Z skincare buyers, launch of watermelon toner, playful tone, goal = UGC-style creator videos"></textarea>
+          </label>
+          <div class="grid2">
+            <label>Keywords / search terms <span class="hint">(one per line)</span>
+              <textarea name="keywords" rows="4" placeholder="glass skin routine&#10;summer skincare"></textarea>
+            </label>
+            <label>Hashtags <span class="hint">(one per line, # optional)</span>
+              <textarea name="hashtags" rows="4" placeholder="skincareroutine&#10;glassskin"></textarea>
+            </label>
+          </div>
+
+          <fieldset>
+            <legend>Platforms</legend>
+            <div class="checks">
+              <label><input type="checkbox" name="platforms" value="tiktok" checked> TikTok</label>
+              <label><input type="checkbox" name="platforms" value="instagram" checked> Instagram</label>
+              <label><input type="checkbox" name="platforms" value="facebook" checked> Facebook</label>
+              <label><input type="checkbox" name="platforms" value="youtube" checked> YouTube</label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Brand's own accounts <span class="hint">pulls their best past videos (TikTok: all-time most popular; others: last 12 months)</span></legend>
+            <div class="grid4">
+              <label>TikTok <input name="brand_tiktok" placeholder="@brand"></label>
+              <label>Instagram <input name="brand_instagram" placeholder="@brand"></label>
+              <label>Facebook page <input name="brand_facebook" placeholder="brand or page URL"></label>
+              <label>YouTube <input name="brand_youtube" placeholder="@brand or channel URL"></label>
+            </div>
+          </fieldset>
+
+          <details>
+            <summary>Competitors / creators to watch <span class="hint">(optional; their recent videos are included. This is the only way to get Facebook content besides the brand's page.)</span></summary>
+            <div class="grid4">
+              <label>TikTok <textarea name="watch_tiktok" rows="2" placeholder="@competitor"></textarea></label>
+              <label>Instagram <textarea name="watch_instagram" rows="2" placeholder="@competitor"></textarea></label>
+              <label>Facebook <textarea name="watch_facebook" rows="2" placeholder="page name or URL"></textarea></label>
+              <label>YouTube <textarea name="watch_youtube" rows="2" placeholder="@channel"></textarea></label>
+            </div>
+          </details>
+
+          <details>
+            <summary>Volume <span class="hint">(more results = higher Apify cost)</span></summary>
+            <div class="grid2">
+              <label>Results per keyword / hashtag / account <input type="number" name="perQuery" value="30" min="5" max="200"></label>
+              <label>Brand videos per account <input type="number" name="brandPerAccount" value="30" min="5" max="100"></label>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button class="btn primary" type="submit">Start pull</button>
+            <span id="formError" class="error"></span>
+          </div>
+        </form>
+      </section>
+
+      <!-- Job results -->
+      <section id="jobView" class="view hidden">
+        <div class="job-head">
+          <div>
+            <h1 id="jobTitle"></h1>
+            <div id="jobMeta" class="muted"></div>
+          </div>
+          <div class="job-actions">
+            <button id="analyzeTopBtn" class="btn">Break down top 10</button>
+            <button id="reportBtn" class="btn primary">Strategy report</button>
+            <a id="csvBtn" class="btn" href="#">Export CSV</a>
+            <button id="rerunBtn" class="btn ghost" title="Run the same pull again with fresh data">Rerun</button>
+          </div>
+        </div>
+
+        <div id="tasks" class="tasks"></div>
+
+        <div class="tabs">
+          <button data-tab="videos" class="on">Videos</button>
+          <button data-tab="report">Strategy report</button>
+        </div>
+
+        <div id="videosTab">
+          <div class="filters">
+            <div class="seg" id="fWindow">
+              <button data-v="30">30d</button><button data-v="60">60d</button><button data-v="90">90d</button><button data-v="all" class="on">All</button>
+            </div>
+            <div class="seg" id="fPlatform">
+              <button data-v="all" class="on">All</button><button data-v="tiktok">TikTok</button><button data-v="instagram">Instagram</button><button data-v="facebook">Facebook</button><button data-v="youtube">YouTube</button>
+            </div>
+            <div class="seg" id="fSource">
+              <button data-v="all" class="on">All</button><button data-v="discovery">Trending</button><button data-v="brand">Brand's past</button><button data-v="watch">Watched</button>
+            </div>
+            <select id="fSort">
+              <option value="viralScore">Sort: viral score</option>
+              <option value="views">Sort: views</option>
+              <option value="outlierRatio">Sort: views ÷ followers</option>
+              <option value="engagementRate">Sort: engagement rate</option>
+              <option value="viewsPerDay">Sort: views per day</option>
+              <option value="newest">Sort: newest</option>
+            </select>
+            <span id="countLabel" class="muted"></span>
+          </div>
+          <div id="grid" class="grid"></div>
+        </div>
+
+        <div id="reportTab" class="hidden">
+          <div class="card report">
+            <div class="report-head">
+              <div id="reportMeta" class="muted"></div>
+              <div>
+                <button id="copyReportBtn" class="btn">Copy Markdown</button>
+                <button id="regenReportBtn" class="btn">Regenerate</button>
+              </div>
+            </div>
+            <div id="reportBody" class="md"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Breakdown drawer -->
+  <div id="drawer" class="drawer hidden">
+    <div class="drawer-bg" data-close></div>
+    <div class="drawer-panel">
+      <button class="close" data-close aria-label="Close">×</button>
+      <div id="drawerBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

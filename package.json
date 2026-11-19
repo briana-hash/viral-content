@@ -1,0 +1,17 @@
+{
+  "name": "viral-content",
+  "private": true,
+  "type": "module",
+  "description": "Viral content scraper and breakdown tool for SideShift campaign strategy.",
+  "scripts": {
+    "dev": "node server.mjs",
+    "check": "for f in server.mjs lib/*.mjs public/app.js; do node --check $f || exit 1; done"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.11.0",
+    "zod": "^4.6.7"
+  }
+}
